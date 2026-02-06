@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rozetka Cleaner - Налаштування</title>
+    <link rel="stylesheet" href="options.css">
+  </head>
+  <body>
+    <main class="wrap">
+      <header class="head">
+        <img src="icons/icon48.png" alt="Rozetka Cleaner">
+        <div>
+          <h1>Rozetka Cleaner</h1>
+          <p>Налаштування елементів, які потрібно приховувати.</p>
+        </div>
+      </header>
+
+      <section class="panel">
+        <label class="row">
+          <input id="hidePromoBlocks" type="checkbox">
+          <span>Приховувати промо-блоки та “карткові” ціни</span>
+        </label>
+
+        <label class="row">
+          <input id="hideRedBonusBlocks" type="checkbox">
+          <span>Приховувати red-бонусні блоки (“бонусних при оплаті Карткою Rozetka”)</span>
+        </label>
+
+        <label class="row">
+          <input id="hideRozetkaAI" type="checkbox">
+          <span>Приховувати кнопку Rozetka AI</span>
+        </label>
+
+        <label class="row">
+          <input id="hideAiConsultationBlock" type="checkbox">
+          <span>Приховувати блок “Потрібна консультація?”</span>
+        </label>
+
+        <label class="row">
+          <input id="normalizePriceLayout" type="checkbox">
+          <span>Нормалізувати блок ціни в картках</span>
+        </label>
+      </section>
+
+      <section class="panel panel-text">
+        <label for="activeSelectors" class="textarea-label">Активні селектори (зараз використовується)</label>
+        <textarea
+          id="activeSelectors"
+          class="selectors-textarea selectors-textarea-readonly"
+          readonly
+        ></textarea>
+      </section>
+
+      <section class="panel panel-text">
+        <label for="customHideSelectors" class="textarea-label">Додаткові CSS-селектори для приховування</label>
+        <textarea
+          id="customHideSelectors"
+          class="selectors-textarea"
+          placeholder="По одному селектору в рядок, наприклад:
+rz-some-new-banner
+.promo-badge"
+        ></textarea>
+        <p class="hint">Після зміни оновіть сторінку Rozetka.</p>
+      </section>
+
+      <p id="status" class="status" aria-live="polite"></p>
+    </main>
+
+    <script src="config.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>

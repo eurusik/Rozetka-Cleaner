@@ -1,37 +1,25 @@
-/* Product card promo price (red card block) */
-rz-product-tile button.red-label,
-rz-product-tile [data-testid="promo-price"],
-rz-red-price,
-rz-red-price .red-price-container,
-rz-product-banner,
-rz-product-banner .product-banner {
+/* Generic hidden class applied by content script */
+.rzc-hidden {
   display: none !important;
 }
 
-/* Rozetka AI floating button */
-rz-chat-bot-button-assist.right-assist,
-rz-chat-bot-button-assist .button-long {
-  display: none !important;
-}
-
-/* Normalize product tile price block:
-   old price on top, current price below with larger font */
-rz-product-tile .price-wrap > .d-flex {
+/* Normalize product tile price block (enabled by root class) */
+html.rzc-normalize-price rz-product-tile .price-wrap > .d-flex {
   align-items: flex-start !important;
 }
 
-rz-product-tile rz-tile-price .d-flex.gap-1 {
+html.rzc-normalize-price rz-product-tile rz-tile-price .d-flex.gap-1 {
   display: flex !important;
   flex-direction: column !important;
   align-items: flex-start !important;
   gap: 2px !important;
 }
 
-rz-product-tile rz-tile-price .old-price {
+html.rzc-normalize-price rz-product-tile rz-tile-price .old-price {
   order: 1;
 }
 
-rz-product-tile rz-tile-price .price {
+html.rzc-normalize-price rz-product-tile rz-tile-price .price {
   order: 2;
   font-size: 1.15rem !important;
   line-height: 1.05 !important;
