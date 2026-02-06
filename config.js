@@ -9,6 +9,7 @@
       hidePromoBlocks: true,
       hideRedBonusBlocks: true,
       hideAdvertisingSections: true,
+      hideQuickFilters: true,
       hideRozetkaAI: true,
       hideAiConsultationBlock: true,
       hidePopularSearchChips: true,
@@ -34,6 +35,11 @@
         { query: 'rz-section-slider[data-testid="advertising-slider"]' },
         { query: "rz-section-slider.advertising-slider-theme" },
         { query: "rz-section-slider rz-advertising-info-btn", closest: "rz-section-slider" }
+      ],
+      quickFilters: [
+        { query: "rz-product-anchor-links" },
+        { query: "rz-product-anchor-links .product-anchor-links__list-wrapper", closest: "rz-product-anchor-links" },
+        { query: "rz-product-anchor-links h2.title", closest: "rz-product-anchor-links" }
       ],
       aiButton: [
         "rz-chat-bot-button-assist.right-assist",

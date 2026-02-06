@@ -16,6 +16,7 @@
     PROMO_MAIN: "promo-main",
     RED_BONUS: "red-bonus",
     ADVERTISING: "advertising",
+    QUICK_FILTERS: "quick-filters",
     AI_BUTTON: "ai-button",
     AI_CONSULT: "ai-consultation",
     POPULAR_SEARCH_CHIPS: "popular-search-chips",
@@ -39,6 +40,7 @@
     "rz-tile-bonus",
     "rz-product-red-bonus",
     "rz-section-slider",
+    "rz-product-anchor-links",
     "rz-chat-bot-button-assist",
     "rz-chat-bot-button-placeholder",
     "rz-tag-list",
@@ -49,6 +51,7 @@
     ".bonus__red",
     ".loyalty__red-card",
     ".advertising-slider-theme",
+    ".product-anchor-links__list-wrapper",
     ".tags-list"
   ].join(", ");
   const HINT_TAGS = new Set([
@@ -58,6 +61,7 @@
     "RZ-TILE-BONUS",
     "RZ-PRODUCT-RED-BONUS",
     "RZ-SECTION-SLIDER",
+    "RZ-PRODUCT-ANCHOR-LINKS",
     "RZ-CHAT-BOT-BUTTON-ASSIST",
     "RZ-CHAT-BOT-BUTTON-PLACEHOLDER",
     "RZ-TAG-LIST"
@@ -68,6 +72,7 @@
     "bonus__red",
     "loyalty__red-card",
     "advertising-slider-theme",
+    "product-anchor-links__list-wrapper",
     "tags-list",
     "max-three-rows"
   ];
@@ -265,6 +270,10 @@
     return SELECTORS.advertising || [];
   }
 
+  function quickFiltersRules() {
+    return SELECTORS.quickFilters || [];
+  }
+
   function aiButtonSelectors() {
     return SELECTORS.aiButton || SELECTORS.ai || [];
   }
@@ -303,6 +312,25 @@
       const text = (el.textContent || "").trim().toLowerCase();
       if (text !== "реклама") return;
       hideElement(el.closest("rz-section-slider"), FEATURE.ADVERTISING);
+    });
+  }
+
+  function hideQuickFilters(root, settings) {
+    if (!settings.hideQuickFilters) return;
+    const scope = root && root.querySelectorAll ? root : document;
+    const matchedBySelectors = hideRuleSelectors(root, quickFiltersRules(), FEATURE.QUICK_FILTERS);
+    if (matchedBySelectors) return;
+
+    if (scope !== document) {
+      const text = (scope.textContent || "").toLowerCase();
+      if (!text.includes("швидкі фільтри")) return;
+    }
+
+    const sectionTitles = safeQueryAll(scope, "rz-product-anchor-links .title, rz-product-anchor-links h2");
+    sectionTitles.forEach((el) => {
+      const text = (el.textContent || "").trim().toLowerCase();
+      if (!text.includes("швидкі фільтри")) return;
+      hideElement(el.closest("rz-product-anchor-links"), FEATURE.QUICK_FILTERS);
     });
   }
 
@@ -400,6 +428,7 @@
     hidePromoPrices(root, settings);
     hideRedBonusBlocks(root, settings);
     hideAdvertisingSections(root, settings);
+    hideQuickFilters(root, settings);
     hideRozetkaAIWidget(root, settings);
     hideAiConsultationBlock(root, settings);
     hidePopularSearchChips(root, settings);
@@ -612,6 +641,9 @@
     }
     if (prevSettings.hideAdvertisingSections && !nextSettings.hideAdvertisingSections) {
       removeFeatureFromAll(document, FEATURE.ADVERTISING);
+    }
+    if (prevSettings.hideQuickFilters && !nextSettings.hideQuickFilters) {
+      removeFeatureFromAll(document, FEATURE.QUICK_FILTERS);
     }
     if (prevSettings.hideRozetkaAI && !nextSettings.hideRozetkaAI) {
       removeFeatureFromAll(document, FEATURE.AI_BUTTON);

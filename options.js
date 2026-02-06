@@ -36,13 +36,17 @@
       .map((rule) => (rule && rule.query ? rule.query : ""))
       .filter(Boolean);
 
+    const quickFilters = (SELECTORS.quickFilters || [])
+      .map((rule) => (rule && rule.query ? rule.query : ""))
+      .filter(Boolean);
+
     const aiButton = (SELECTORS.aiButton || SELECTORS.ai || []).filter(Boolean);
     const aiConsultation = (SELECTORS.aiConsultation || []).filter(Boolean);
     const popularSearchChips = (SELECTORS.popularSearchChips || [])
       .map((rule) => (rule && rule.query ? rule.query : ""))
       .filter(Boolean);
 
-    return { promoMain, redBonus, advertising, aiButton, aiConsultation, popularSearchChips };
+    return { promoMain, redBonus, advertising, quickFilters, aiButton, aiConsultation, popularSearchChips };
   }
 
   function renderActiveSelectors(settings) {
@@ -59,6 +63,9 @@
       "",
       "# Advertising selectors (built-in)",
       ...builtIn.advertising,
+      "",
+      "# Quick filters selectors (built-in)",
+      ...builtIn.quickFilters,
       "",
       "# Rozetka AI button selectors (built-in)",
       ...builtIn.aiButton,
