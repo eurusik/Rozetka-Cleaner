@@ -41,6 +41,7 @@
     "rz-product-red-bonus",
     "rz-section-slider",
     "rz-product-anchor-links",
+    "rz-tile-info",
     "rz-chat-bot-button-assist",
     "rz-chat-bot-button-placeholder",
     "rz-tag-list",
@@ -62,6 +63,7 @@
     "RZ-PRODUCT-RED-BONUS",
     "RZ-SECTION-SLIDER",
     "RZ-PRODUCT-ANCHOR-LINKS",
+    "RZ-TILE-INFO",
     "RZ-CHAT-BOT-BUTTON-ASSIST",
     "RZ-CHAT-BOT-BUTTON-PLACEHOLDER",
     "RZ-TAG-LIST"
@@ -300,6 +302,13 @@
     if (!settings.hideAdvertisingSections) return;
     const scope = root && root.querySelectorAll ? root : document;
     const matchedBySelectors = hideRuleSelectors(root, advertisingRules(), FEATURE.ADVERTISING);
+    const adTileWrappers = safeQueryAll(scope, "div.item > rz-product-tile, li > rz-product-tile, [rzscrollslideritem] > rz-product-tile, [data-testid='section-slide'] > rz-product-tile");
+    adTileWrappers.forEach((tile) => {
+      const featureSet = parseFeatureSet(tile);
+      if (!featureSet.has(FEATURE.ADVERTISING)) return;
+      const wrapper = tile.closest("div.item, [rzscrollslideritem], [data-testid='section-slide'], li");
+      if (wrapper) hideElement(wrapper, FEATURE.ADVERTISING);
+    });
     if (matchedBySelectors) return;
 
     if (scope !== document) {
@@ -312,6 +321,22 @@
       const text = (el.textContent || "").trim().toLowerCase();
       if (text !== "реклама") return;
       hideElement(el.closest("rz-section-slider"), FEATURE.ADVERTISING);
+    });
+
+    const adInfoNodes = safeQueryAll(scope, "rz-product-tile rz-tile-info, rz-tile-info");
+    adInfoNodes.forEach((el) => {
+      const text = (el.textContent || "").trim().toLowerCase();
+      if (!text.includes("реклама")) return;
+      const wrapper = el.closest("div.item, [rzscrollslideritem], [data-testid='section-slide'], li");
+      hideElement(wrapper || el.closest("rz-product-tile"), FEATURE.ADVERTISING);
+    });
+
+    const sponsoredLinks = safeQueryAll(
+      scope,
+      "rz-product-tile a[rel~='sponsored'], rz-product-tile a[href*='advToken='], rz-product-tile a[href*='advSource=']"
+    );
+    sponsoredLinks.forEach((el) => {
+      hideElement(el.closest("div.item, [rzscrollslideritem], [data-testid='section-slide'], li, rz-product-tile"), FEATURE.ADVERTISING);
     });
   }
 
