@@ -17,6 +17,9 @@
   const activeSelectorsEl = document.getElementById("activeSelectors");
   const checkboxKeys = Object.keys(DEFAULTS).filter((k) => typeof DEFAULTS[k] === "boolean");
   const textKeys = Object.keys(DEFAULTS).filter((k) => typeof DEFAULTS[k] === "string");
+  let statusTimer = 0;
+  let saveTimer = 0;
+  let currentSettings = { ...DEFAULTS };
 
   function getCustomSelectors(raw) {
     if (typeof raw !== "string") return [];
@@ -70,8 +73,10 @@
   function showStatus(text) {
     if (!statusEl) return;
     statusEl.textContent = text;
-    window.setTimeout(() => {
+    if (statusTimer) window.clearTimeout(statusTimer);
+    statusTimer = window.setTimeout(() => {
       if (statusEl.textContent === text) statusEl.textContent = "";
+      statusTimer = 0;
     }, 1200);
   }
 
@@ -110,28 +115,52 @@
     });
   }
 
+  function scheduleSave(delayMs) {
+    if (saveTimer) window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(() => {
+      saveTimer = 0;
+      saveSettings(currentSettings);
+    }, delayMs);
+  }
+
+  function flushPendingSave() {
+    if (saveTimer) {
+      window.clearTimeout(saveTimer);
+      saveTimer = 0;
+      saveSettings(currentSettings);
+    }
+  }
+
   loadSettings().then((settings) => {
-    renderActiveSelectors(settings);
+    currentSettings = settings;
+    renderActiveSelectors(currentSettings);
 
     checkboxKeys.forEach((key) => {
       const el = document.getElementById(key);
       if (!el) return;
-      el.checked = Boolean(settings[key]);
+      el.checked = Boolean(currentSettings[key]);
       el.addEventListener("change", () => {
-        settings[key] = el.checked;
-        saveSettings(settings);
+        currentSettings[key] = el.checked;
+        scheduleSave(0);
       });
     });
 
     textKeys.forEach((key) => {
       const el = document.getElementById(key);
       if (!el) return;
-      el.value = typeof settings[key] === "string" ? settings[key] : "";
+      el.value = typeof currentSettings[key] === "string" ? currentSettings[key] : "";
       el.addEventListener("input", () => {
-        settings[key] = el.value;
-        renderActiveSelectors(settings);
-        saveSettings(settings);
+        currentSettings[key] = el.value;
+        renderActiveSelectors(currentSettings);
+        scheduleSave(250);
       });
     });
   });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      flushPendingSave();
+    }
+  });
+  window.addEventListener("pagehide", flushPendingSave, { once: true });
 })();
