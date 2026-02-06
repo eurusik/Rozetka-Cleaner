@@ -72,6 +72,10 @@ body {
   font-size: 13px;
 }
 
+.status.status-error {
+  color: #b42318;
+}
+
 .textarea-label {
   display: block;
   font-weight: 600;

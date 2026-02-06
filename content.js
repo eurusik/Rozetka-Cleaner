@@ -22,6 +22,7 @@
 
   const CLEANUP_TIMEOUT_MS = 200;
   const MAX_PENDING_ROOTS = 200;
+  const SETTINGS_SYNC_DEBOUNCE_MS = 120;
 
   const CONFIG = globalThis.RZC_CONFIG || {};
   const STORAGE_KEY = CONFIG.storageKey || "rzc_settings";
@@ -58,6 +59,7 @@
   let observer = null;
   let cleanupRaf = 0;
   let cleanupTimer = 0;
+  let settingsSyncTimer = 0;
   const pendingRoots = new Set();
   let onStorageChanged = null;
   const internalStyleWriteCounts = new WeakMap();
@@ -451,6 +453,10 @@
       window.clearTimeout(cleanupTimer);
       cleanupTimer = 0;
     }
+    if (settingsSyncTimer) {
+      window.clearTimeout(settingsSyncTimer);
+      settingsSyncTimer = 0;
+    }
     pendingRoots.clear();
 
     if (onStorageChanged && chrome.storage && chrome.storage.onChanged) {
@@ -542,20 +548,27 @@
   function watchSettingsChanges() {
     if (!chrome.storage || !chrome.storage.onChanged) return;
 
+    function scheduleSettingsRefresh() {
+      if (settingsSyncTimer) window.clearTimeout(settingsSyncTimer);
+      settingsSyncTimer = window.setTimeout(() => {
+        settingsSyncTimer = 0;
+        readSettings().then((settings) => {
+          const prevSettings = currentSettings;
+          currentSettings = settings;
+          reconcileSettings(prevSettings, currentSettings);
+          applyLayoutMode(currentSettings);
+          scheduleCleanup(document);
+        });
+      }, SETTINGS_SYNC_DEBOUNCE_MS);
+    }
+
     onStorageChanged = (changes, areaName) => {
       if (areaName !== "sync") return;
 
       const hasNamespaced = Boolean(changes[STORAGE_KEY]);
       const hasLegacy = Object.keys(DEFAULTS).some((key) => key in changes);
       if (!hasNamespaced && !hasLegacy) return;
-
-      readSettings().then((settings) => {
-        const prevSettings = currentSettings;
-        currentSettings = settings;
-        reconcileSettings(prevSettings, currentSettings);
-        applyLayoutMode(currentSettings);
-        scheduleCleanup(document);
-      });
+      scheduleSettingsRefresh();
     };
 
     chrome.storage.onChanged.addListener(onStorageChanged);

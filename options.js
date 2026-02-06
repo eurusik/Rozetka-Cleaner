@@ -63,12 +63,16 @@
     activeSelectorsEl.value = lines.join("\n");
   }
 
-  function showStatus(text) {
+  function showStatus(text, variant = "success") {
     if (!statusEl) return;
     statusEl.textContent = text;
+    statusEl.classList.toggle("status-error", variant === "error");
     if (statusTimer) window.clearTimeout(statusTimer);
     statusTimer = window.setTimeout(() => {
-      if (statusEl.textContent === text) statusEl.textContent = "";
+      if (statusEl.textContent === text) {
+        statusEl.textContent = "";
+        statusEl.classList.remove("status-error");
+      }
       statusTimer = 0;
     }, 1200);
   }
@@ -103,8 +107,13 @@
   function saveSettings(nextSettings) {
     if (!chrome.storage || !chrome.storage.sync) return;
     chrome.storage.sync.set({ [STORAGE_KEY]: nextSettings }, () => {
-      if (chrome.runtime && chrome.runtime.lastError) return;
-      showStatus("Збережено");
+      const runtimeError = chrome.runtime && chrome.runtime.lastError;
+      if (runtimeError) {
+        console.error("[RZC] Failed to save settings:", runtimeError);
+        showStatus("Помилка збереження", "error");
+        return;
+      }
+      showStatus("Збережено", "success");
     });
   }
 
