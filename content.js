@@ -29,6 +29,8 @@
 
   const CONFIG = globalThis.RZC_CONFIG || {};
   const STORAGE_KEY = CONFIG.storageKey || "rzc_settings";
+  const DIAGNOSTICS_STORAGE_KEY = `${STORAGE_KEY}_diagnostics`;
+  const DIAGNOSTICS_DEBOUNCE_MS = 450;
   const ROOT_CLASS_NORMALIZE = CONFIG.rootClassNormalizePrice || "rzc-normalize-price";
   const HIDDEN_CLASS = CONFIG.hiddenClass || "rzc-hidden";
   const DEFAULTS = CONFIG.defaults || {};
@@ -84,6 +86,7 @@
   let cleanupRaf = 0;
   let cleanupTimer = 0;
   let settingsSyncTimer = 0;
+  let diagnosticsTimer = 0;
   const pendingRoots = new Set();
   let onStorageChanged = null;
   const internalStyleWriteCounts = new WeakMap();
@@ -303,6 +306,151 @@
     return SELECTORS.popularSearchChips || [];
   }
 
+  function countUniqueMatchesByRules(scope, rules) {
+    const nodes = new Set();
+    rules.forEach((rule) => {
+      if (!rule || !rule.query) return;
+      safeQueryAll(scope, rule.query).forEach((el) => nodes.add(el));
+    });
+    return nodes.size;
+  }
+
+  function countUniqueMatchesBySelectors(scope, selectors) {
+    const nodes = new Set();
+    selectors.forEach((selector) => {
+      safeQueryAll(scope, selector).forEach((el) => nodes.add(el));
+    });
+    return nodes.size;
+  }
+
+  function countHiddenByFeature(scope, featureId) {
+    let count = 0;
+    safeQueryAll(scope, `[${HIDDEN_FEATURES_ATTR}]`).forEach((el) => {
+      const featureSet = parseFeatureSet(el);
+      if (featureSet.has(featureId)) count += 1;
+    });
+    return count;
+  }
+
+  function hasTextFallbackSignal(pageText, phrases) {
+    if (!phrases || !phrases.length) return null;
+    return phrases.some((needle) => pageText.includes(needle));
+  }
+
+  function getDiagnosticsFeatureEntries(settings, scope) {
+    const customSelectors = settings.customHideSelectorList || [];
+    const pageText = (scope.textContent || "").toLowerCase();
+
+    return [
+      {
+        id: FEATURE.PROMO_MAIN,
+        enabled: Boolean(settings.hidePromoBlocks),
+        selectorMatches: countUniqueMatchesByRules(scope, promoRules()),
+        textMatch: null
+      },
+      {
+        id: FEATURE.RED_BONUS,
+        enabled: Boolean(settings.hideRedBonusBlocks),
+        selectorMatches: countUniqueMatchesByRules(scope, redBonusRules()),
+        textMatch: null
+      },
+      {
+        id: FEATURE.ADVERTISING,
+        enabled: Boolean(settings.hideAdvertisingSections),
+        selectorMatches: countUniqueMatchesByRules(scope, advertisingRules()),
+        textMatch: hasTextFallbackSignal(pageText, settings.advertisingTextList)
+      },
+      {
+        id: FEATURE.QUICK_FILTERS,
+        enabled: Boolean(settings.hideQuickFilters),
+        selectorMatches: countUniqueMatchesByRules(scope, quickFiltersRules()),
+        textMatch: hasTextFallbackSignal(pageText, settings.quickFiltersTextList)
+      },
+      {
+        id: FEATURE.AI_BUTTON,
+        enabled: Boolean(settings.hideRozetkaAI),
+        selectorMatches: countUniqueMatchesBySelectors(scope, aiButtonSelectors()),
+        textMatch: hasTextFallbackSignal(pageText, settings.aiButtonTextList)
+      },
+      {
+        id: FEATURE.AI_CONSULT,
+        enabled: Boolean(settings.hideAiConsultationBlock),
+        selectorMatches: countUniqueMatchesBySelectors(scope, aiConsultationSelectors()),
+        textMatch: hasTextFallbackSignal(pageText, settings.aiConsultationTextList)
+      },
+      {
+        id: FEATURE.POPULAR_SEARCH_CHIPS,
+        enabled: Boolean(settings.hidePopularSearchChips),
+        selectorMatches: countUniqueMatchesByRules(scope, popularSearchChipsRules()),
+        textMatch: hasTextFallbackSignal(pageText, settings.popularSearchTextList)
+      },
+      {
+        id: FEATURE.CUSTOM,
+        enabled: customSelectors.length > 0,
+        selectorMatches: countUniqueMatchesBySelectors(scope, customSelectors),
+        textMatch: null
+      }
+    ].map((entry) => {
+      const hiddenCount = countHiddenByFeature(scope, entry.id);
+      const hasSelectorOrTextSignal =
+        entry.selectorMatches > 0 ||
+        (entry.textMatch !== null && entry.textMatch === true);
+      let status = entry.id === FEATURE.CUSTOM ? "not_configured" : "disabled";
+
+      if (entry.enabled) {
+        if (hasSelectorOrTextSignal && hiddenCount === 0) {
+          // Something matching was found but nothing got hidden.
+          status = "warning";
+        } else if (!hasSelectorOrTextSignal && hiddenCount === 0) {
+          // This page likely just doesn't contain this block type.
+          status = "not_on_page";
+        } else {
+          status = "ok";
+        }
+      }
+
+      return {
+        ...entry,
+        hiddenCount,
+        status
+      };
+    });
+  }
+
+  function writeDiagnosticsSnapshot(snapshot) {
+    if (!chrome.storage || !chrome.storage.local) return;
+    chrome.storage.local.set({ [DIAGNOSTICS_STORAGE_KEY]: snapshot }, () => {});
+  }
+
+  function flushDiagnostics(settings) {
+    diagnosticsTimer = 0;
+    const scope = document;
+    const features = getDiagnosticsFeatureEntries(settings, scope);
+    const enabledCount = features.filter((item) => item.enabled).length;
+    const okCount = features.filter((item) => item.enabled && item.status === "ok").length;
+    const warningCount = features.filter((item) => item.enabled && item.status === "warning").length;
+    const notOnPageCount = features.filter((item) => item.enabled && item.status === "not_on_page").length;
+
+    writeDiagnosticsSnapshot({
+      updatedAt: Date.now(),
+      url: location.href,
+      host: location.host,
+      summary: {
+        enabledCount,
+        okCount,
+        warningCount,
+        notOnPageCount
+      },
+      features
+    });
+  }
+
+  function scheduleDiagnostics(settings) {
+    if (!chrome.storage || !chrome.storage.local) return;
+    if (diagnosticsTimer) window.clearTimeout(diagnosticsTimer);
+    diagnosticsTimer = window.setTimeout(() => flushDiagnostics(settings), DIAGNOSTICS_DEBOUNCE_MS);
+  }
+
   function hidePromoPrices(root, settings) {
     if (!settings.hidePromoBlocks) return;
     hideRuleSelectors(root, promoRules(), FEATURE.PROMO_MAIN);
@@ -473,6 +621,7 @@
     hideAiConsultationBlock(root, settings);
     hidePopularSearchChips(root, settings);
     hideCustomSelectors(root, settings);
+    scheduleDiagnostics(settings);
   }
 
   function containsHintTargets(node) {
@@ -601,6 +750,10 @@
     if (settingsSyncTimer) {
       window.clearTimeout(settingsSyncTimer);
       settingsSyncTimer = 0;
+    }
+    if (diagnosticsTimer) {
+      window.clearTimeout(diagnosticsTimer);
+      flushDiagnostics(currentSettings);
     }
     pendingRoots.clear();
 

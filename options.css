@@ -43,6 +43,10 @@ body {
   padding: 8px 0;
 }
 
+.panel + .panel {
+  margin-top: 12px;
+}
+
 .panel-title {
   margin: 8px 16px 2px;
   font-size: 17px;
@@ -54,8 +58,91 @@ body {
 }
 
 .panel-advanced {
-  margin-top: 12px;
   padding: 0;
+}
+
+.panel-diagnostics {
+  padding: 0;
+}
+
+.diag-summary {
+  margin: 8px 0 6px;
+  font-size: 14px;
+  color: #27313a;
+}
+
+.diag-meta {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #6a737a;
+}
+
+.diag-list {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.diag-item {
+  border: 1px solid #e8edf1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fbfcfd;
+}
+
+.diag-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.diag-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.diag-badge {
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 8px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.diag-badge-ok {
+  color: #0f7d42;
+  background: #ecfdf3;
+  border-color: #a6f4c5;
+}
+
+.diag-badge-warn {
+  color: #8f4b00;
+  background: #fff6e8;
+  border-color: #ffd5a3;
+}
+
+.diag-badge-info {
+  color: #22588d;
+  background: #edf6ff;
+  border-color: #b7dbff;
+}
+
+.diag-badge-off {
+  color: #4e5c66;
+  background: #f2f5f7;
+  border-color: #dbe2e7;
+}
+
+.diag-details {
+  margin: 0;
+  font-size: 12px;
+  color: #5b646b;
 }
 
 .advanced-details summary {
