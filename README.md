@@ -2,7 +2,9 @@
 
 Легке Chrome-розширення (Manifest V3), яке прибирає промо-елементи на Rozetka і робить блок ціни більш акуратним.
 
-![Rozetka Cleaner Logo](assets/logo-source.png)
+<p align="center">
+  <img src="assets/logo-source.png" alt="Rozetka Cleaner Logo" width="280">
+</p>
 
 ## Що робить
 
