@@ -3,14 +3,7 @@
 
   const CONFIG = globalThis.RZC_CONFIG || {};
   const STORAGE_KEY = CONFIG.storageKey || "rzc_settings";
-  const DEFAULTS = CONFIG.defaults || {
-    hidePromoBlocks: true,
-    hideRedBonusBlocks: true,
-    hideRozetkaAI: true,
-    hideAiConsultationBlock: true,
-    normalizePriceLayout: true,
-    customHideSelectors: ""
-  };
+  const DEFAULTS = CONFIG.defaults || {};
   const SELECTORS = CONFIG.selectors || { promo: [], ai: [], aiTextNodes: "" };
 
   const statusEl = document.getElementById("status");

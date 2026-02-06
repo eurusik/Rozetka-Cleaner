@@ -10,6 +10,7 @@
   const PREV_DISPLAY_PRIORITY_ATTR = "data-rzc-prev-display-priority";
   const PREV_VISIBILITY_ATTR = "data-rzc-prev-visibility";
   const PREV_VISIBILITY_PRIORITY_ATTR = "data-rzc-prev-visibility-priority";
+  const STYLE_DIRTY_ATTR = "data-rzc-style-dirty";
 
   const FEATURE = {
     PROMO_MAIN: "promo-main",
@@ -26,14 +27,7 @@
   const STORAGE_KEY = CONFIG.storageKey || "rzc_settings";
   const ROOT_CLASS_NORMALIZE = CONFIG.rootClassNormalizePrice || "rzc-normalize-price";
   const HIDDEN_CLASS = CONFIG.hiddenClass || "rzc-hidden";
-  const DEFAULTS = CONFIG.defaults || {
-    hidePromoBlocks: true,
-    hideRedBonusBlocks: true,
-    hideRozetkaAI: true,
-    hideAiConsultationBlock: true,
-    normalizePriceLayout: true,
-    customHideSelectors: ""
-  };
+  const DEFAULTS = CONFIG.defaults || {};
   const SELECTORS = CONFIG.selectors || {};
   const OBSERVER_HINT_SELECTOR = [
     "rz-product-tile",
@@ -49,6 +43,16 @@
     ".bonus__red",
     ".loyalty__red-card"
   ].join(", ");
+  const HINT_TAGS = new Set([
+    "RZ-PRODUCT-TILE",
+    "RZ-RED-PRICE",
+    "RZ-PRODUCT-BANNER",
+    "RZ-TILE-BONUS",
+    "RZ-PRODUCT-RED-BONUS",
+    "RZ-CHAT-BOT-BUTTON-ASSIST",
+    "RZ-CHAT-BOT-BUTTON-PLACEHOLDER"
+  ]);
+  const HINT_CLASSES = ["red-label", "red-icon", "bonus__red", "loyalty__red-card"];
 
   let currentSettings = normalizeSettings(DEFAULTS);
   let observer = null;
@@ -56,6 +60,7 @@
   let cleanupTimer = 0;
   const pendingRoots = new Set();
   let onStorageChanged = null;
+  const internalStyleWriteCounts = new WeakMap();
 
   function parseFeatureSet(el) {
     const raw = el.getAttribute(HIDDEN_FEATURES_ATTR) || "";
@@ -71,6 +76,39 @@
     el.setAttribute(HIDDEN_FEATURES_ATTR, Array.from(set).sort().join(","));
   }
 
+  function safeQueryAll(scope, selector) {
+    if (!scope || typeof scope.querySelectorAll !== "function") return [];
+    try {
+      return scope.querySelectorAll(selector);
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function markInternalStyleWrite(el) {
+    if (!el || el.nodeType !== Node.ELEMENT_NODE) return;
+    const prevCount = internalStyleWriteCounts.get(el) || 0;
+    internalStyleWriteCounts.set(el, prevCount + 1);
+  }
+
+  function consumeInternalStyleWrite(el) {
+    const prevCount = internalStyleWriteCounts.get(el) || 0;
+    if (!prevCount) return false;
+    if (prevCount === 1) {
+      internalStyleWriteCounts.delete(el);
+      return true;
+    }
+    internalStyleWriteCounts.set(el, prevCount - 1);
+    return true;
+  }
+
+  function clearStyleSnapshot(el) {
+    el.removeAttribute(PREV_DISPLAY_ATTR);
+    el.removeAttribute(PREV_DISPLAY_PRIORITY_ATTR);
+    el.removeAttribute(PREV_VISIBILITY_ATTR);
+    el.removeAttribute(PREV_VISIBILITY_PRIORITY_ATTR);
+  }
+
   function rememberInlineStyle(el, prop, valueAttr, priorityAttr) {
     if (el.hasAttribute(valueAttr)) return;
     const value = el.style.getPropertyValue(prop);
@@ -81,6 +119,7 @@
 
   function restoreInlineStyle(el, prop, valueAttr, priorityAttr) {
     if (!el.hasAttribute(valueAttr)) {
+      markInternalStyleWrite(el);
       el.style.removeProperty(prop);
       return;
     }
@@ -88,8 +127,10 @@
     const value = el.getAttribute(valueAttr);
     const priority = el.getAttribute(priorityAttr);
     if (value === "__empty__") {
+      markInternalStyleWrite(el);
       el.style.removeProperty(prop);
     } else {
+      markInternalStyleWrite(el);
       el.style.setProperty(prop, value, priority === "__empty__" ? "" : priority);
     }
 
@@ -100,7 +141,9 @@
   function applyHideStyles(el) {
     rememberInlineStyle(el, "display", PREV_DISPLAY_ATTR, PREV_DISPLAY_PRIORITY_ATTR);
     rememberInlineStyle(el, "visibility", PREV_VISIBILITY_ATTR, PREV_VISIBILITY_PRIORITY_ATTR);
+    markInternalStyleWrite(el);
     el.style.setProperty("display", "none", "important");
+    markInternalStyleWrite(el);
     el.style.setProperty("visibility", "hidden", "important");
   }
 
@@ -108,6 +151,19 @@
     if (!el || el.nodeType !== Node.ELEMENT_NODE) return;
     el.removeAttribute(HIDDEN_ATTR);
     el.classList.remove(HIDDEN_CLASS);
+    const isDirty = el.getAttribute(STYLE_DIRTY_ATTR) === "1";
+    el.removeAttribute(STYLE_DIRTY_ATTR);
+
+    // If site changed inline styles while hidden, avoid restoring stale snapshot values.
+    if (isDirty) {
+      clearStyleSnapshot(el);
+      markInternalStyleWrite(el);
+      el.style.removeProperty("display");
+      markInternalStyleWrite(el);
+      el.style.removeProperty("visibility");
+      return;
+    }
+
     restoreInlineStyle(el, "display", PREV_DISPLAY_ATTR, PREV_DISPLAY_PRIORITY_ATTR);
     restoreInlineStyle(el, "visibility", PREV_VISIBILITY_ATTR, PREV_VISIBILITY_PRIORITY_ATTR);
   }
@@ -156,7 +212,7 @@
     let matched = false;
     rules.forEach((rule) => {
       if (!rule || !rule.query) return;
-      scope.querySelectorAll(rule.query).forEach((node) => {
+      safeQueryAll(scope, rule.query).forEach((node) => {
         matched = true;
         const removable = rule.closest ? node.closest(rule.closest) || node : node;
         hideElement(removable, featureId);
@@ -169,7 +225,7 @@
     const scope = root && root.querySelectorAll ? root : document;
     let matched = false;
     selectors.forEach((selector) => {
-      scope.querySelectorAll(selector).forEach((el) => {
+      safeQueryAll(scope, selector).forEach((el) => {
         matched = true;
         hideElement(el, featureId);
         extraClosestSelectors.forEach((closestSel) => hideElement(el.closest(closestSel), featureId));
@@ -217,7 +273,7 @@
     if (matchedBySelectors) return;
     if (scope !== document && !(scope.textContent || "").toLowerCase().includes("rozetka ai")) return;
 
-    const textNodes = scope.querySelectorAll(SELECTORS.aiTextNodes || "button, a, div, span");
+    const textNodes = safeQueryAll(scope, SELECTORS.aiTextNodes || "button, a, div, span");
     textNodes.forEach((el) => {
       const text = (el.textContent || "").trim().toLowerCase();
       if (!text.includes("rozetka ai")) return;
@@ -252,7 +308,7 @@
       if (!text.includes("потрібна консультація") && !text.includes("ai-помічник")) return;
     }
 
-    const textNodes = scope.querySelectorAll(SELECTORS.aiTextNodes || "button, a, div, span");
+    const textNodes = safeQueryAll(scope, SELECTORS.aiTextNodes || "button, a, div, span");
     textNodes.forEach((el) => {
       const text = (el.textContent || "").trim().toLowerCase();
       const consultation =
@@ -274,15 +330,31 @@
 
   function containsHintTargets(node) {
     if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
-    if (typeof node.matches === "function" && node.matches(OBSERVER_HINT_SELECTOR)) return true;
-    if (typeof node.querySelector === "function" && node.querySelector(OBSERVER_HINT_SELECTOR)) return true;
+    if (isPotentialHintFast(node)) return true;
+    if (typeof node.querySelector === "function" && safeQueryAll(node, OBSERVER_HINT_SELECTOR).length > 0) return true;
     return false;
   }
 
   function isRelevantAttributeTarget(node) {
     if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
-    if (typeof node.matches === "function" && node.matches(OBSERVER_HINT_SELECTOR)) return true;
+    if (isPotentialHintFast(node)) return true;
     if (typeof node.closest === "function" && node.closest(OBSERVER_HINT_SELECTOR)) return true;
+    return false;
+  }
+
+  function hasHintClass(node) {
+    if (!node || !node.classList) return false;
+    for (const className of HINT_CLASSES) {
+      if (node.classList.contains(className)) return true;
+    }
+    return false;
+  }
+
+  function isPotentialHintFast(node) {
+    if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
+    if (node.hasAttribute(HIDDEN_FEATURES_ATTR) || node.hasAttribute(HIDDEN_ATTR)) return true;
+    if (HINT_TAGS.has(node.tagName)) return true;
+    if (hasHintClass(node)) return true;
     return false;
   }
 
@@ -341,6 +413,15 @@
 
         if (mutation.type === "attributes") {
           const target = mutation.target;
+          if (mutation.attributeName === "style") {
+            if (consumeInternalStyleWrite(target)) {
+              continue;
+            }
+            if (target.getAttribute(HIDDEN_FEATURES_ATTR)) {
+              target.setAttribute(STYLE_DIRTY_ATTR, "1");
+            }
+          }
+
           if (!isRelevantAttributeTarget(target)) continue;
           if (isStableHiddenByUs(target)) continue;
           scheduleCleanup(target);
@@ -427,11 +508,7 @@
     const scope = root && root.querySelectorAll ? root : document;
 
     list.forEach((selector) => {
-      try {
-        scope.querySelectorAll(selector).forEach((node) => hideElement(node, FEATURE.CUSTOM));
-      } catch (err) {
-        // Ignore invalid selectors to keep extension resilient.
-      }
+      safeQueryAll(scope, selector).forEach((node) => hideElement(node, FEATURE.CUSTOM));
     });
   }
 
